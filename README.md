@@ -5,6 +5,7 @@
 Foodie-Fi is a subscription-based streaming service focused on food-related content. This project uses PostgreSQL to analyze customer subscription journeys and answer business questions about plan adoption, churn, upgrades, and downgrades.
 
 **Tools: PostgreSQL, pgAdmin 4, Visual Studio Code**
+
 **SQL concepts: Aggregations, joins, date functions, CTEs, subqueries, window functions (`LEAD`, `ROW_NUMBER`), and conditional counting.**
 
 <img width="726" height="730" alt="image" src="https://github.com/user-attachments/assets/f9b66b94-650b-4f12-ae74-8487f53d0519" />
