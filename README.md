@@ -44,13 +44,6 @@ Records the date on which each customer's subscription plan starts.
 
 **Relationship:** `plans.plan_id` → `subscriptions.plan_id` (one plan can be associated with many subscription records).
 
-### Important data interpretation
-
-- A customer's first record is generally the 7-day free trial.
-- Each subsequent record indicates a plan change and its effective start date.
-- `plan_id = 4` represents churn.
-- For questions about a customer's plan at a historical date, select the latest subscription record on or before that date.
-- The SQL file sets the schema with `SET search_path = foodie_fi;`.
 ## How to Run
 
 1. Create or connect to the `foodie_fi` database in PostgreSQL.
