@@ -4,12 +4,10 @@
 
 Foodie-Fi is a subscription-based streaming service focused on food-related content. This project uses PostgreSQL to analyze customer subscription journeys and answer business questions about plan adoption, churn, upgrades, and downgrades.
 
-The analysis follows the questions from the [8 Week SQL Challenge — Case Study #3: Foodie-Fi](https://8weeksqlchallenge.com/case-study-3/).
-
 **Tools:** PostgreSQL, pgAdmin 4, Visual Studio Code  
 **SQL concepts:** Aggregations, joins, date functions, CTEs, subqueries, window functions (`LEAD`, `ROW_NUMBER`), and conditional counting.
 
-## Dataset Description & Data Structure
+## 2. Dataset Description & Data Structure
 
 The dataset contains two tables in the `foodie_fi` schema.
 
@@ -50,6 +48,31 @@ Records the date on which each customer's subscription plan starts.
 - `plan_id = 4` represents churn.
 - For questions about a customer's plan at a historical date, select the latest subscription record on or before that date.
 - The SQL file sets the schema with `SET search_path = foodie_fi;`.
+## How to Run
+
+1. Create or connect to the `foodie_fi` database in PostgreSQL.
+2. Load the source tables and data using the provided `schema.sql` (if it contains the schema and inserts).
+3. Open `Analysis Questions.sql` in pgAdmin 4 or run it through a PostgreSQL client.
+4. Execute the queries and review the result sets.
+5. Save screenshots of selected query outputs into the `images/` directory using the filenames referenced above.
+
+## Repository Structure
+
+```text
+case-03-foodie-fi/
+├── Analysis Questions.sql
+├── schema.sql
+├── README.md
+└── images/
+    ├── q1-total-customers.png
+    ├── q2-monthly-trials.png
+    ├── q4-churn-rate.png
+    ├── q6-plans-after-trial.png
+    ├── q7-plan-distribution.png
+    └── q9-average-days-annual.png
+```
+
+> Source: The analysis follows the questions from the [8 Week SQL Challenge — Case Study #3: Foodie-Fi](https://8weeksqlchallenge.com/case-study-3/).
 
 ## Analysis & Queries
 
@@ -86,9 +109,9 @@ ORDER BY month;
 
 ![Monthly trial sign-ups query result](images/q2-monthly-trials.png)
 
-### 3. Churn rate
+### 4. Churn rate
 
-**Business question:** What percentage of customers have churned?
+**Business question:** What is the customer count and percentage of customers who have churned rounded to 1 decimal place?
 
 ```sql
 WITH customer_count AS (
@@ -106,130 +129,82 @@ SELECT
 FROM customer_count;
 ```
 
-**Result:** Add a screenshot from pgAdmin showing the churn count and percentage.
+<img width="350" height="93" alt="image" src="https://github.com/user-attachments/assets/d4d612fb-07f3-46ba-89f9-3f877cd9ae5e" />
 
-![Churn analysis query result](images/q4-churn-rate.png)
 
 ### 4. Customer plan immediately after the free trial
 
 **Business question:** What plan do customers move to after their initial free trial, and what percentage of customers choose each plan?
 
 ```sql
-WITH cte AS (
-    SELECT
+with cte as (
+    select
         customer_id,
         plan_id,
-        LEAD(plan_id) OVER (
-            PARTITION BY customer_id
-            ORDER BY start_date
-        ) AS next_plan_id
-    FROM subscriptions
-)
-SELECT
-    c.next_plan_id AS plan_id,
-    p.plan_name,
-    COUNT(*) AS customer_count,
-    ROUND(
-        COUNT(*) * 100.0 /
-        (SELECT COUNT(DISTINCT customer_id) FROM subscriptions),
-        1
-    ) AS percentage
-FROM cte c
-JOIN plans p
-    ON c.next_plan_id = p.plan_id
-WHERE c.plan_id = 0
-GROUP BY c.next_plan_id, p.plan_name
-ORDER BY c.next_plan_id;
+        lead(plan_id) over (partition by customer_id order by start_date) as next_plan_id
+     from subscriptions
+    )
+select
+    next_plan_id as plan_id,
+    plan_name,
+    count(next_plan_id) as customer,
+    round(count(next_plan_id)*100.0/((SELECT COUNT(DISTINCT customer_id) FROM subscriptions)),1) as percentage
+from cte c
+    join plans p
+    on c.next_plan_id=p.plan_id
+where c.plan_id=0
+group by plan_name, c.next_plan_id
+order by next_plan_id;
 ```
 
-**Result:** Add a screenshot from pgAdmin showing the count and percentage for each next plan.
+<img width="458" height="178" alt="image" src="https://github.com/user-attachments/assets/0f56d7ca-1d0c-46f4-bf6a-da3850f1ed42" />
 
-![Plan after trial query result](images/q6-plans-after-trial.png)
 
 ### 5. Subscription plan distribution at 31 December 2020
 
 **Business question:** How many customers were on each plan at the end of 2020?
 
 ```sql
-WITH ranked_subscriptions AS (
-    SELECT
-        s.customer_id,
-        s.plan_id,
-        p.plan_name,
-        s.start_date,
-        ROW_NUMBER() OVER (
-            PARTITION BY s.customer_id
-            ORDER BY s.start_date DESC
-        ) AS rn
-    FROM subscriptions s
-    JOIN plans p USING (plan_id)
-    WHERE s.start_date < DATE '2021-01-01'
-)
-SELECT
-    plan_name,
-    COUNT(*) AS customer_count,
-    ROUND(
-        COUNT(*) * 100.0 /
-        (SELECT COUNT(DISTINCT customer_id) FROM subscriptions),
-        1
-    ) AS percentage
-FROM ranked_subscriptions
-WHERE rn = 1
-GROUP BY plan_id, plan_name
-ORDER BY plan_id;
+with cte as (
+    select
+        plan_id,
+        plan_name,
+        start_date,
+        customer_id,
+        row_number() over (partition by customer_id order by start_date desc ) as ranking
+     from subscriptions join plans using (plan_id)
+    )
+select
+    plan_name as plan_2020,
+    count(customer_id) as customer_count,
+    round(count(customer_id)*100.0/((SELECT COUNT(DISTINCT customer_id) FROM cte)),1) as percentage
+from cte
+where start_date<'2021-01-01'and ranking =1
+group by plan_name,plan_id
+order by plan_id;
 ```
 
-**Result:** Add a screenshot from pgAdmin showing the plan distribution.
 
-![Plan distribution at year end](images/q7-plan-distribution.png)
+<img width="438" height="169" alt="image" src="https://github.com/user-attachments/assets/8e30b29b-78ad-4d0f-a083-8c6de269ba73" />
 
-### 6. Average time to upgrade to an annual plan
 
 **Business question:** How many days does it take on average for customers to move from joining Foodie-Fi to an annual plan?
 
 ```sql
-WITH cte AS (
-    SELECT
-        customer_id,
+with cte as ( 
+    -- extract first day join
+    select
         plan_id,
         start_date,
-        MIN(start_date) OVER (
-            PARTITION BY customer_id
-        ) AS join_date
-    FROM subscriptions
-)
-SELECT
-    ROUND(AVG(start_date - join_date)) AS avg_days_to_annual
-FROM cte
-WHERE plan_id = 3;
+        min(start_date) over (partition by customer_id) as join_date
+     from subscriptions
+    )
+select
+    round(avg( start_date-join_date ),0) as avg_days_to_annyal
+from cte
+where plan_id = 3;
 ```
 
-**Result:** Add a screenshot from pgAdmin showing the average number of days.
+<img width="235" height="100" alt="image" src="https://github.com/user-attachments/assets/a24ddd37-0eac-413a-be3d-6e350a9d4574" />
 
-![Average days to annual plan](images/q9-average-days-annual.png)
 
-## How to Run
-
-1. Create or connect to the `foodie_fi` database in PostgreSQL.
-2. Load the source tables and data using the provided `schema.sql` (if it contains the schema and inserts).
-3. Open `Analysis Questions.sql` in pgAdmin 4 or run it through a PostgreSQL client.
-4. Execute the queries and review the result sets.
-5. Save screenshots of selected query outputs into the `images/` directory using the filenames referenced above.
-
-## Repository Structure
-
-```text
-case-03-foodie-fi/
-├── Analysis Questions.sql
-├── schema.sql
-├── README.md
-└── images/
-    ├── q1-total-customers.png
-    ├── q2-monthly-trials.png
-    ├── q4-churn-rate.png
-    ├── q6-plans-after-trial.png
-    ├── q7-plan-distribution.png
-    └── q9-average-days-annual.png
-```
-
-> **Note:** The image paths above are placeholders. Add your own pgAdmin screenshots with the matching filenames, or update the image links to match your actual filenames.
