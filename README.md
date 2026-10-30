@@ -7,6 +7,9 @@ Foodie-Fi is a subscription-based streaming service focused on food-related cont
 **Tools:** PostgreSQL, pgAdmin 4, Visual Studio Code  
 **SQL concepts:** Aggregations, joins, date functions, CTEs, subqueries, window functions (`LEAD`, `ROW_NUMBER`), and conditional counting.
 
+<img width="726" height="730" alt="image" src="https://github.com/user-attachments/assets/f9b66b94-650b-4f12-ae74-8487f53d0519" />
+
+
 ## 2. Dataset Description & Data Structure
 
 The dataset contains two tables in the `foodie_fi` schema.
@@ -63,13 +66,6 @@ case-03-foodie-fi/
 ├── Analysis Questions.sql
 ├── schema.sql
 ├── README.md
-└── images/
-    ├── q1-total-customers.png
-    ├── q2-monthly-trials.png
-    ├── q4-churn-rate.png
-    ├── q6-plans-after-trial.png
-    ├── q7-plan-distribution.png
-    └── q9-average-days-annual.png
 ```
 
 > Source: The analysis follows the questions from the [8 Week SQL Challenge — Case Study #3: Foodie-Fi](https://8weeksqlchallenge.com/case-study-3/).
@@ -80,52 +76,52 @@ The SQL solutions are available in [`Analysis Questions.sql`](./Analysis%20Quest
 
 ### 1. Total number of customers
 
-**Business question:** How many customers has Foodie-Fi ever had?
-
 ```sql
-SELECT COUNT(DISTINCT customer_id) AS customers_count
-FROM subscriptions;
+-- 1. How many customers has Foodie-Fi ever had?
+SELECT
+    COUNT(DISTINCT customer_id) AS customers_count
+FROM
+    subscriptions;
 ```
 
-**Result:** Add a screenshot from pgAdmin showing the query result.
+<img width="291" height="127" alt="image" src="https://github.com/user-attachments/assets/84ac8609-5daf-4d32-b1d3-2ba263e92ee0" />
 
-![Total customers query result](images/q1-total-customers.png)
 
 ### 2. Monthly trial sign-ups
 
-**Business question:** How are trial plan start dates distributed by month?
-
 ```sql
+-- 2.What is the monthly distribution of trial plan start_date values for our dataset use the start of the month as the group by value
+
 SELECT
-    DATE_TRUNC('month', start_date)::DATE AS month,
-    COUNT(*) AS trial_count
-FROM subscriptions
-WHERE plan_id = 0
-GROUP BY DATE_TRUNC('month', start_date)
-ORDER BY month;
+    DATE_TRUNC('month', start_date)::date AS MONTH,
+    COUNT(plan_id) AS trial_count
+FROM
+    subscriptions
+WHERE
+    plan_id = 1
+GROUP BY
+    DATE_TRUNC('month', start_date)
+ORDER BY
+    month;
 ```
 
-**Result:** Add a screenshot from pgAdmin showing the monthly counts.
+<img width="306" height="389" alt="image" src="https://github.com/user-attachments/assets/a413ebeb-e8eb-4b91-b307-b0303ee9cbf3" />
 
-![Monthly trial sign-ups query result](images/q2-monthly-trials.png)
 
 ### 4. Churn rate
 
-**Business question:** What is the customer count and percentage of customers who have churned rounded to 1 decimal place?
-
 ```sql
+--4. What is the customer count and percentage of customers who have churned rounded to 1 decimal place?
+
 WITH customer_count AS (
     SELECT
         COUNT(DISTINCT customer_id) AS total_customer,
-        COUNT(DISTINCT CASE
-            WHEN plan_id = 4 THEN customer_id
-        END) AS churned_customer
+        COUNT(DISTINCT CASE WHEN plan_id = 4 THEN customer_id END) AS churned_customer
     FROM subscriptions
 )
 SELECT
     churned_customer,
-    ROUND(churned_customer * 100.0 / total_customer, 1)
-        AS churned_percentage
+    ROUND(churned_customer * 100.0/ total_customer, 1) AS churned_percentage
 FROM customer_count;
 ```
 
@@ -134,9 +130,9 @@ FROM customer_count;
 
 ### 4. Customer plan immediately after the free trial
 
-**Business question:** What plan do customers move to after their initial free trial, and what percentage of customers choose each plan?
-
 ```sql
+-- 6.What is the number and percentage of customer plans after their initial free trial?
+
 with cte as (
     select
         customer_id,
@@ -157,14 +153,15 @@ group by plan_name, c.next_plan_id
 order by next_plan_id;
 ```
 
-<img width="458" height="178" alt="image" src="https://github.com/user-attachments/assets/0f56d7ca-1d0c-46f4-bf6a-da3850f1ed42" />
+<img width="502" height="179" alt="image" src="https://github.com/user-attachments/assets/607b2b66-2fb3-4b1f-8b49-e7204d153dbf" />
+
 
 
 ### 5. Subscription plan distribution at 31 December 2020
 
-**Business question:** How many customers were on each plan at the end of 2020?
-
 ```sql
+-- 7.What is the customer count and percentage breakdown of all 5 plan_name values at 2020-12-31?
+
 with cte as (
     select
         plan_id,
@@ -185,26 +182,87 @@ order by plan_id;
 ```
 
 
-<img width="438" height="169" alt="image" src="https://github.com/user-attachments/assets/8e30b29b-78ad-4d0f-a083-8c6de269ba73" />
+<img width="438" height="173" alt="image" src="https://github.com/user-attachments/assets/35dd9d06-ad8b-44d2-9b65-cbbd45969f6f" />
 
+### 6. Customers have upgraded to an annual plan in 2020
 
-**Business question:** How many days does it take on average for customers to move from joining Foodie-Fi to an annual plan?
 
 ```sql
-with cte as ( 
-    -- extract first day join
+-- 8.How many customers have upgraded to an annual plan in 2020?
+
+with cte as (
     select
         plan_id,
+        customer_id,
         start_date,
-        min(start_date) over (partition by customer_id) as join_date
+        row_number() over (partition by customer_id order by start_date desc ) as ranking
      from subscriptions
+     where start_date<='2020-12-31' and start_date>='2020-01-01'
     )
 select
-    round(avg( start_date-join_date ),0) as avg_days_to_annyal
+    count( customer_id) as customers_upgraded_annual_plan_2020
 from cte
-where plan_id = 3;
+where ranking =1 and plan_id = 3;
+    
 ```
 
-<img width="235" height="100" alt="image" src="https://github.com/user-attachments/assets/a24ddd37-0eac-413a-be3d-6e350a9d4574" />
+<img width="349" height="101" alt="image" src="https://github.com/user-attachments/assets/e1ec6a99-3e5a-40b2-ae70-c925fc6d5f35" />
+
+### 7. Average days to upgrade
 
 
+```sql
+-- 8.How many customers have upgraded to an annual plan in 2020?
+
+with cte as (
+    select
+        plan_id,
+        customer_id,
+        start_date,
+        row_number() over (partition by customer_id order by start_date desc ) as ranking
+     from subscriptions
+     where start_date<='2020-12-31' and start_date>='2020-01-01'
+    )
+select
+    count( customer_id) as customers_upgraded_annual_plan_2020
+from cte
+where ranking =1 and plan_id = 3;
+    
+```
+
+<img width="226" height="91" alt="image" src="https://github.com/user-attachments/assets/ada7b897-af7f-4299-bac9-65f3bd4535b7" />
+
+
+### 8. Breakdown into 30 day periods (i.e. 0-30 days, 31-60 days etc)
+
+
+```sql
+-- 10.Can you further breakdown this average value into 30 day periods (i.e. 0-30 days, 31-60 days etc)
+
+WITH cte AS (
+    SELECT
+        customer_id,
+        plan_id,
+        start_date,
+        MIN(start_date) OVER (
+            PARTITION BY customer_id
+        ) AS join_date
+    FROM subscriptions
+)
+SELECT
+    CONCAT(
+        ((start_date - join_date - 1) / 30) * 30 + 1,
+        '-',
+        ((start_date - join_date - 1) / 30 + 1) * 30,
+        ' days'
+    ) AS days_period,
+    COUNT(DISTINCT customer_id) AS customer_count
+FROM cte
+WHERE plan_id = 3
+GROUP BY 1
+ORDER BY MIN(start_date - join_date);
+
+    
+```
+
+<img width="324" height="372" alt="image" src="https://github.com/user-attachments/assets/baf5f751-751f-4327-b05b-353d38b29613" />
